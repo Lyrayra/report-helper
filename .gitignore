@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+*.env
+
+# API Keys
+api_key.txt
+secrets/
+
+# Generated files
+output/
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
