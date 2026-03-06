@@ -81,7 +81,7 @@ with st.sidebar:
         st.session_state.api_key = api_key
 
     # モデル取得ボタン
-    if st.button("🔄 利用可能なモデルを取得", use_container_width=True):
+    if st.button("🔄 利用可能なモデルを取得", use_container_width=True, help="入力されたAPIキーで利用可能なGeminiモデルの一覧を取得します"):
         if not api_key:
             st.error("先にAPIキーを入力してください。")
         else:
@@ -114,13 +114,14 @@ with st.sidebar:
         "📁 実験データのディレクトリパス",
         value=st.session_state.directory,
         placeholder="/home/user/experiment_data",
+        help="Excel（実験データ）、PDF（指導書）、TeX（テンプレート）が含まれるディレクトリの絶対パスを指定してください"
     )
     # バックスラッシュをスラッシュに正規化（Windowsスタイルのパス対応）
     if directory:
         directory = directory.replace("\\", "/")
         st.session_state.directory = directory
 
-    if st.button("📂 ファイルを読み込む", use_container_width=True, type="primary"):
+    if st.button("📂 ファイルを読み込む", use_container_width=True, type="primary", help="指定されたディレクトリ内のファイルを読み込み、解析の準備をします"):
         if not directory or not os.path.isdir(directory):
             st.error("有効なディレクトリパスを指定してください。")
         elif not api_key:
@@ -230,7 +231,7 @@ if st.session_state.files:
 if st.session_state.phase == "loaded":
     st.info("ファイルの読み込みが完了しました。ルール抽出を開始してください。")
 
-    if st.button("🔍 指導書からルールを抽出する", type="primary"):
+    if st.button("🔍 指導書からルールを抽出する", type="primary", help="PDFの指導書をAIに解析させ、グラフ作成のルールや考察ポイントを抽出します"):
         if not st.session_state.pdf_images and not st.session_state.pdf_text:
             st.warning("PDFが読み込まれていません。Excelデータのみで進めます。")
 
@@ -255,7 +256,7 @@ if st.session_state.phase in ("rules_extracted", "chatting", "generating", "done
 
 if st.session_state.phase == "rules_extracted":
     st.info("ルールの抽出が完了しました。対話を開始して考察を深めましょう。")
-    if st.button("💬 対話を開始する", type="primary"):
+    if st.button("💬 対話を開始する", type="primary", help="抽出されたルールをもとに、AI教員との対話を開始します"):
         st.session_state.phase = "chatting"
 
         # 初回メッセージをAIから送信
@@ -324,11 +325,11 @@ if st.session_state.phase in ("chatting", "generating", "done"):
         st.divider()
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("📄 レポートを生成する", type="primary", use_container_width=True):
+            if st.button("📄 レポートを生成する", type="primary", use_container_width=True, help="ここまでの対話内容をもとに、グラフ描画スクリプトとレポート本文を生成します"):
                 st.session_state.phase = "generating"
                 st.rerun()
         with col2:
-            if st.button("🔄 対話をリセット", use_container_width=True):
+            if st.button("🔄 対話をリセット", use_container_width=True, help="これまでの対話履歴をすべて消去して最初からやり直します（この操作は取り消せません）"):
                 st.session_state.chat_history = []
                 st.session_state.gemini_chat = None
                 st.session_state.phase = "rules_extracted"
@@ -463,7 +464,7 @@ if st.session_state.phase == "done":
 
     # 再スタート
     st.divider()
-    if st.button("🔄 最初からやり直す", use_container_width=True):
+    if st.button("🔄 最初からやり直す", use_container_width=True, help="現在のすべての状態（ファイル読み込み、対話履歴、生成されたレポート）をリセットして初期状態に戻します（この操作は取り消せません）"):
         for key, default in DEFAULTS.items():
             st.session_state[key] = default
         st.rerun()
