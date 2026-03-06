@@ -137,6 +137,7 @@ def generate_code(
         "【元のTeXテンプレート本文】\n" + tex_body
     )
 
+    response = None
     try:
         response = client.models.generate_content(
             model=GEMINI_MODEL,
@@ -152,16 +153,16 @@ def generate_code(
         return result
     except json.JSONDecodeError as e:
         logger.error("JSON解析エラー: %s", e)
-        # フォールバック: テキストからJSON部分を抽出
-        text = response.text
-        start = text.find("{")
-        end = text.rfind("}") + 1
-        if start != -1 and end > start:
-            try:
-                return json.loads(text[start:end])
-            except json.JSONDecodeError:
-                pass
-        return {"error": f"コード生成結果のパースに失敗: {e}", "raw": text}
+        if response is not None:
+            text = response.text
+            start = text.find("{")
+            end = text.rfind("}") + 1
+            if start != -1 and end > start:
+                try:
+                    return json.loads(text[start:end])
+                except json.JSONDecodeError:
+                    pass
+        return {"error": f"コード生成結果のパースに失敗: {e}"}
     except Exception as e:
         logger.error("コード生成エラー: %s", e)
         return {"error": str(e)}

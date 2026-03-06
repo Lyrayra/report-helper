@@ -51,13 +51,17 @@ def read_excel_to_markdown(filepath: str) -> str:
 
     md_parts = []
     for sheet_name in xls.sheet_names:
-        df = pd.read_excel(xls, sheet_name=sheet_name)
-        if df.empty:
-            continue
-        md_parts.append(f"### シート: {sheet_name}\n")
-        md_parts.append(df.to_markdown(index=False))
-        md_parts.append("")
-        logger.info("  シート '%s': %d行 x %d列", sheet_name, len(df), len(df.columns))
+        try:
+            df = pd.read_excel(xls, sheet_name=sheet_name)
+            if df.empty:
+                continue
+            md_parts.append(f"### シート: {sheet_name}\n")
+            md_parts.append(df.to_markdown(index=False))
+            md_parts.append("")
+            logger.info("  シート '%s': %d行 x %d列", sheet_name, len(df), len(df.columns))
+        except Exception as e:
+            logger.error("シート '%s' 読み込みエラー: %s", sheet_name, e)
+            md_parts.append(f"### シート: {sheet_name}\n[読み込みエラー: {e}]\n")
 
     return "\n".join(md_parts) if md_parts else "[空のExcelファイル]"
 

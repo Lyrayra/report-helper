@@ -107,7 +107,7 @@ def compile_latex(tex_source: str, output_dir: str, filename: str = "report") ->
                     "success": False,
                     "error": error_summary,
                     "tex_path": tex_path,
-                    "stdout": result.stdout[-500:] if result.stdout else "",
+                    "stdout": (result.stdout or "")[-500:],
                 }
 
         if os.path.exists(pdf_path):

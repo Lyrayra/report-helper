@@ -249,9 +249,6 @@ if st.session_state.phase in ("chatting", "generating", "done"):
         user_input = st.chat_input("考察を入力してください...")
 
         if user_input:
-            # ユーザーメッセージ追加
-            st.session_state.chat_history.append({"role": "user", "content": user_input})
-
             # チャットセッションが切れている場合は再作成
             if st.session_state.gemini_chat is None:
                 client = create_client(st.session_state.api_key)
@@ -263,9 +260,12 @@ if st.session_state.phase in ("chatting", "generating", "done"):
                     st.session_state.rules,
                     st.session_state.excel_markdown,
                     tex_body,
-                    st.session_state.chat_history[:-1],  # 最新のユーザーメッセージ除く
+                    st.session_state.chat_history,
                 )
                 st.session_state.gemini_chat = chat
+
+            # ユーザーメッセージ追加
+            st.session_state.chat_history.append({"role": "user", "content": user_input})
 
             # AI応答
             response = send_chat_message(st.session_state.gemini_chat, user_input)
