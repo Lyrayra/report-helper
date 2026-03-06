@@ -9,6 +9,7 @@ from config import TEX_MARKER_START, TEX_MARKER_END
 from file_parser import find_files, read_excel_to_markdown, extract_pdf_pages, TexTemplate
 from gemini_client import (
     create_client,
+    list_available_models,
     extract_rules,
     create_chat_session,
     send_chat_message,
@@ -36,6 +37,8 @@ st.set_page_config(
 DEFAULTS = {
     "phase": "init",            # init -> loaded -> rules_extracted -> chatting -> generating -> done
     "api_key": "",
+    "gemini_model": "",         # 選択中のモデル
+    "available_models": [],     # API から取得したモデル一覧
     "directory": "",
     "files": None,
     "excel_markdown": "",
@@ -77,6 +80,34 @@ with st.sidebar:
     if api_key:
         st.session_state.api_key = api_key
 
+    # モデル取得ボタン
+    if st.button("🔄 利用可能なモデルを取得", use_container_width=True):
+        if not api_key:
+            st.error("先にAPIキーを入力してください。")
+        else:
+            with st.spinner("モデル一覧を取得中..."):
+                models = list_available_models(api_key)
+            if models:
+                st.session_state.available_models = models
+                if st.session_state.gemini_model not in models:
+                    st.session_state.gemini_model = models[0]
+                st.success(f"{len(models)} 件のモデルを取得しました")
+            else:
+                st.error("モデルの取得に失敗しました。APIキーを確認してください。")
+
+    if st.session_state.available_models:
+        selected = st.selectbox(
+            "🤖 使用するモデル",
+            options=st.session_state.available_models,
+            index=st.session_state.available_models.index(st.session_state.gemini_model)
+                  if st.session_state.gemini_model in st.session_state.available_models else 0,
+        )
+        st.session_state.gemini_model = selected
+    elif st.session_state.gemini_model:
+        st.info(f"モデル: `{st.session_state.gemini_model}`")
+    else:
+        st.caption("⬆️ APIキーを入力後、モデルを取得してください")
+
     st.divider()
 
     directory = st.text_input(
@@ -84,7 +115,9 @@ with st.sidebar:
         value=st.session_state.directory,
         placeholder="/home/user/experiment_data",
     )
+    # バックスラッシュをスラッシュに正規化（Windowsスタイルのパス対応）
     if directory:
+        directory = directory.replace("\\", "/")
         st.session_state.directory = directory
 
     if st.button("📂 ファイルを読み込む", use_container_width=True, type="primary"):
@@ -133,6 +166,18 @@ with st.sidebar:
 
                 st.session_state.phase = "loaded"
                 add_log("✅ ファイル読み込み完了")
+
+        # ディレクトリ構造を表示
+        st.success(f"✅ ディレクトリを読み込みました: `{directory}`")
+        try:
+            all_entries = sorted(os.listdir(directory))
+            st.caption("📂 ディレクトリ内のファイル一覧")
+            for entry in all_entries:
+                full = os.path.join(directory, entry)
+                icon = "📁" if os.path.isdir(full) else "📄"
+                st.text(f"  {icon} {entry}")
+        except Exception as e:
+            st.warning(f"ディレクトリ一覧の取得に失敗しました: {e}")
 
     st.divider()
 
@@ -196,6 +241,7 @@ if st.session_state.phase == "loaded":
                 st.session_state.pdf_images,
                 st.session_state.pdf_text,
                 st.session_state.excel_markdown,
+                model=st.session_state.gemini_model,
             )
             st.session_state.rules = rules
             st.session_state.phase = "rules_extracted"
@@ -223,6 +269,7 @@ if st.session_state.phase == "rules_extracted":
             st.session_state.rules,
             st.session_state.excel_markdown,
             tex_body,
+            model=st.session_state.gemini_model,
         )
         st.session_state.gemini_chat = chat
 
@@ -261,6 +308,7 @@ if st.session_state.phase in ("chatting", "generating", "done"):
                     st.session_state.excel_markdown,
                     tex_body,
                     st.session_state.chat_history,
+                    model=st.session_state.gemini_model,
                 )
                 st.session_state.gemini_chat = chat
 
@@ -309,6 +357,7 @@ if st.session_state.phase == "generating":
             st.session_state.excel_markdown,
             chat_text,
             tex_body,
+            model=st.session_state.gemini_model,
         )
         st.session_state.generated_code = code
 
@@ -356,6 +405,7 @@ if st.session_state.phase == "generating":
                 st.session_state.rules,
                 chat_text,
                 code.get("latex_body", ""),
+                model=st.session_state.gemini_model,
             )
             st.session_state.final_review = review
 

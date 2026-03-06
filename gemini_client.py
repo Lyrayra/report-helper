@@ -18,6 +18,30 @@ from config import (
 logger = logging.getLogger(__name__)
 
 
+def list_available_models(api_key: str) -> list[str]:
+    """generateContentに対応している利用可能なGeminiモデルの一覧を返す"""
+    try:
+        client = genai.Client(api_key=api_key)
+        models = client.models.list()
+        result = []
+        for m in models:
+            name = m.name  # "models/gemini-..." 形式
+            # generateContent対応かつgeminiモデルのみ絞り込む
+            supported = getattr(m, "supported_actions", None) or getattr(m, "supported_generation_methods", [])
+            supports_gen = (
+                not supported  # 属性なしの場合は一旦含める
+                or "generateContent" in supported
+                or "generate_content" in supported
+            )
+            if "gemini" in name and supports_gen:
+                # 表示用に "models/" プレフィックスを除く
+                result.append(name.removeprefix("models/"))
+        return sorted(result)
+    except Exception as e:
+        logger.error("モデル一覧取得エラー: %s", e)
+        return []
+
+
 def create_client(api_key: str) -> genai.Client:
     """Gemini APIクライアントを作成する"""
     return genai.Client(api_key=api_key)
@@ -28,6 +52,7 @@ def extract_rules(
     pdf_images: list[Image.Image],
     pdf_text: str,
     excel_markdown: str,
+    model: str = GEMINI_MODEL,
 ) -> str:
     """指導書PDF・テキスト・Excelデータからレポートルールを抽出する"""
     logger.info("ルール抽出開始: 画像%d枚, テキスト%d文字, Excelデータ%d文字",
@@ -56,7 +81,7 @@ def extract_rules(
 
     try:
         response = client.models.generate_content(
-            model=GEMINI_MODEL,
+            model=model,
             contents=contents,
             config=types.GenerateContentConfig(
                 max_output_tokens=MAX_OUTPUT_TOKENS,
@@ -77,11 +102,12 @@ def create_chat_session(
     excel_markdown: str,
     tex_body: str,
     history: list[dict] | None = None,
+    model: str = GEMINI_MODEL,
 ) -> "genai.ChatSession":
     """ファシリテーション用チャットセッションを作成する"""
     system_instruction = (
         FACILITATOR_SYSTEM_PROMPT + "\n\n"
-        "【抽出されたレポートルール】\n" + rules + "\n\n"
+        "【抜出されたレポートルール】\n" + rules + "\n\n"
         "【実験データ】\n" + excel_markdown + "\n\n"
         "【TeXテンプレート本文構造】\n" + tex_body
     )
@@ -98,7 +124,7 @@ def create_chat_session(
             )
 
     chat = client.chats.create(
-        model=GEMINI_MODEL,
+        model=model,
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             max_output_tokens=MAX_OUTPUT_TOKENS,
@@ -125,8 +151,9 @@ def generate_code(
     excel_markdown: str,
     chat_history_text: str,
     tex_body: str,
+    model: str = GEMINI_MODEL,
 ) -> dict:
-    """対話結果に基づきgnuplotスクリプトとLaTeX本文を生成する"""
+    """対話結果に基づおgnuplotスクリプトとLaTeX本文を生成する"""
     logger.info("コード生成開始")
 
     prompt = (
@@ -140,7 +167,7 @@ def generate_code(
     response = None
     try:
         response = client.models.generate_content(
-            model=GEMINI_MODEL,
+            model=model,
             contents=prompt,
             config=types.GenerateContentConfig(
                 max_output_tokens=MAX_OUTPUT_TOKENS,
@@ -173,6 +200,7 @@ def generate_final_review(
     rules: str,
     chat_history_text: str,
     latex_body: str,
+    model: str = GEMINI_MODEL,
 ) -> str:
     """生成されたレポートの最終レビューを行う"""
     prompt = (
@@ -189,7 +217,7 @@ def generate_final_review(
 
     try:
         response = client.models.generate_content(
-            model=GEMINI_MODEL,
+            model=model,
             contents=prompt,
             config=types.GenerateContentConfig(
                 max_output_tokens=MAX_OUTPUT_TOKENS,

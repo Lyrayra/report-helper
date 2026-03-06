@@ -41,7 +41,7 @@ def find_files(directory: str) -> dict:
 # ---------- Excel処理 ----------
 
 def read_excel_to_markdown(filepath: str) -> str:
-    """Excelファイルを読み込み、各シートをMarkdownテーブルに変換する"""
+    """Excelファイルを読み込み、全シートをMarkdownテーブルに変換する"""
     logger.info("Excel読み込み: %s", filepath)
     try:
         xls = pd.ExcelFile(filepath, engine="openpyxl")
@@ -49,16 +49,25 @@ def read_excel_to_markdown(filepath: str) -> str:
         logger.error("Excelファイルを開けません: %s", e)
         return f"[Excelエラー] {e}"
 
+    logger.info("  シート一覧: %s", xls.sheet_names)
     md_parts = []
     for sheet_name in xls.sheet_names:
         try:
-            df = pd.read_excel(xls, sheet_name=sheet_name)
-            if df.empty:
+            df = pd.read_excel(xls, sheet_name=sheet_name, header=0)
+            # 全セルがNaNのシートはスキップ
+            if df.dropna(how="all").empty and df.dropna(axis=1, how="all").empty:
+                logger.info("  シート '%s': 空のためスキップ", sheet_name)
                 continue
+            # 全NaN列を削除してすっきりさせる
+            df = df.dropna(axis=1, how="all")
             md_parts.append(f"### シート: {sheet_name}\n")
-            md_parts.append(df.to_markdown(index=False))
-            md_parts.append("")
             logger.info("  シート '%s': %d行 x %d列", sheet_name, len(df), len(df.columns))
+            try:
+                md_parts.append(df.to_markdown(index=False))
+            except Exception:
+                # tabulateが入っていない等の場合はCSV形式で代替
+                md_parts.append(df.to_csv(index=False))
+            md_parts.append("")
         except Exception as e:
             logger.error("シート '%s' 読み込みエラー: %s", sheet_name, e)
             md_parts.append(f"### シート: {sheet_name}\n[読み込みエラー: {e}]\n")
